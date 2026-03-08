@@ -47,7 +47,7 @@ A fully private, locally-running RAG (Retrieval-Augmented Generation) chatbot th
 
 **1. Clone the repository**
 ```bash
-git clone https://github.com/itskie/Private-AI-Bot.git
+git clone https://github.com/itskie/rag-pdf-chatbot.git
 cd Private-AI-Bot
 ```
 
