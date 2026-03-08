@@ -110,7 +110,7 @@ Private-AI-Bot/
 
 ## 👨‍💻 Author
 
-**Shobhit Kumar Singh**  
+**Shobhit Singh**  
 [![LinkedIn](https://img.shields.io/badge/LinkedIn-Connect-blue?logo=linkedin)](https://linkedin.com/in/itskie)
 
 ---
