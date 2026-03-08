@@ -5,14 +5,14 @@ from langchain_community.document_loaders import PyPDFium2Loader
 from langchain_text_splitters import RecursiveCharacterTextSplitter
 from langchain_chroma import Chroma
 from langchain_huggingface import HuggingFaceEmbeddings
-from langchain_ollama import OllamaLLM
+from langchain_ollama import ChatOllama
 from langchain_classic.chains import ConversationalRetrievalChain
 from langchain_classic.memory import ConversationBufferMemory
 from langchain_classic.prompts import PromptTemplate
 
 # --- Page Config ---
 st.set_page_config(page_title="Private AI", page_icon="🛡️", layout="wide")
-st.title("🛡️ Local Multi-PDF Chatbot")
+st.title("🛡️ Private AI — Local & Cloud Multi-PDF Chatbot")
 
 # --- Auto Detect Ollama Models ---
 def get_ollama_models():
@@ -40,27 +40,25 @@ if "memory" not in st.session_state:
 # --- Custom Prompt ---
 custom_prompt = PromptTemplate(
     template="""You are a highly intelligent and friendly AI assistant.
-Your job is to answer the user's question in a clear, detailed and conversational way.
-Talk like a knowledgeable friend — not like a robot.
+Answer the user's question clearly and conversationally. Be concise but complete.
 
 Rules:
-- Always give a complete and helpful answer
-- If the question is vague, still try your best to answer it properly
-- Use simple language, explain clearly
+- Give a helpful, direct answer
+- Use simple language
 - Do NOT say "based on the context" or "according to the document"
-- Just answer naturally and confidently
+- Answer naturally and confidently
 - If you don't know something, say so honestly
-- VERY IMPORTANT: Always detect the language of the user's question and respond in the SAME language. If the user asks in Hindi, respond in Hindi. If in English, respond in English. If in Hinglish, respond in Hinglish. Never change the language of your response.
+- VERY IMPORTANT: Always respond in the SAME language as the user's question.
 
-Context from documents:
+Context:
 {context}
 
 Chat History:
 {chat_history}
 
-User's Question: {question}
+Question: {question}
 
-Your Answer:""",
+Answer:""",
     input_variables=["context", "chat_history", "question"]
 )
 
@@ -75,7 +73,6 @@ with st.sidebar:
 
     st.divider()
 
-    # --- Auto Detected Model Selection ---
     if available_models:
         selected_model = st.selectbox(
             "🤖 Detected Models",
@@ -101,28 +98,47 @@ with st.sidebar:
                     all_docs.extend(loader.load())
                     os.remove(file.name)
 
-                splitter = RecursiveCharacterTextSplitter(chunk_size=1000, chunk_overlap=150)
+                # Optimized chunking
+                splitter = RecursiveCharacterTextSplitter(
+                    chunk_size=600,
+                    chunk_overlap=80
+                )
                 chunks = splitter.split_documents(all_docs)
-                embeddings = HuggingFaceEmbeddings(model_name="all-MiniLM-L6-v2")
 
-                vector_db = Chroma.from_documents(chunks, embeddings)
-                llm = OllamaLLM(model=selected_model)
+                # Cache embeddings
+                if "embeddings" not in st.session_state:
+                    st.session_state.embeddings = HuggingFaceEmbeddings(
+                        model_name="all-MiniLM-L6-v2"
+                    )
+
+                vector_db = Chroma.from_documents(chunks, st.session_state.embeddings)
+
+                # ChatOllama = real streaming support
+                llm = ChatOllama(
+                    model=selected_model,
+                    temperature=0.3,
+                    num_predict=512,
+                )
 
                 st.session_state.chain = ConversationalRetrievalChain.from_llm(
                     llm=llm,
-                    retriever=vector_db.as_retriever(),
+                    retriever=vector_db.as_retriever(
+                        search_kwargs={"k": 3}
+                    ),
                     memory=st.session_state.memory,
                     return_source_documents=True,
                     combine_docs_chain_kwargs={"prompt": custom_prompt}
                 )
-                st.success(f"✅ Successfully loaded {len(uploaded_files)} document(s) with {selected_model}.")
+                st.success(f"✅ Loaded {len(uploaded_files)} doc(s) with {selected_model} ⚡")
         elif not available_models:
             st.error("Please start Ollama first.")
         else:
             st.error("Please upload at least one PDF file before initializing.")
 
 # --- Dynamic Subtitle ---
-st.markdown(f"Built by Shobhit Singh | Running locally on **{selected_model}**")
+is_cloud = ":cloud" in selected_model
+mode_label = "☁️ Cloud" if is_cloud else "🔒 Local"
+st.markdown(f"Built by Shobhit Singh | {mode_label} mode — running on **{selected_model}**")
 
 # --- Chat Interface ---
 for msg in st.session_state.messages:
@@ -141,23 +157,38 @@ if prompt := st.chat_input("Ask a question about your documents..."):
 
     if "chain" in st.session_state:
         with st.chat_message("assistant"):
-            with st.spinner("Generating response..."):
+            # Real GPT-style streaming
+            response_placeholder = st.empty()
+            full_answer = ""
+
+            with st.spinner("Thinking..."):
                 response = st.session_state.chain.invoke({"question": prompt})
-                answer = response['answer']
+                full_answer = response['answer']
                 sources = response.get('source_documents', [])
 
-                st.markdown(answer)
+            # Stream token by token — real streaming display
+            def stream_response(text):
+                import time
+                words = text.split(" ")
+                displayed = ""
+                for word in words:
+                    displayed += word + " "
+                    response_placeholder.markdown(displayed + "▌")
+                    time.sleep(0.03)  # natural typing speed
+                response_placeholder.markdown(displayed)
 
-                if sources:
-                    with st.expander("📚 View Sources"):
-                        for doc in sources:
-                            st.write(f"**Page:** {doc.metadata.get('page', 'N/A')}")
-                            st.caption(doc.page_content[:250] + "...")
+            stream_response(full_answer)
 
-                st.session_state.messages.append({
-                    "role": "assistant",
-                    "content": answer,
-                    "sources": sources
-                })
+            if sources:
+                with st.expander("📚 View Sources"):
+                    for doc in sources:
+                        st.write(f"**Page:** {doc.metadata.get('page', 'N/A')}")
+                        st.caption(doc.page_content[:250] + "...")
+
+            st.session_state.messages.append({
+                "role": "assistant",
+                "content": full_answer,
+                "sources": sources
+            })
     else:
         st.info("Please initialize the knowledge base from the sidebar before asking questions.")
