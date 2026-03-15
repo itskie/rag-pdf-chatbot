@@ -1,5 +1,5 @@
 """
-Private AI v4.4 — Enterprise Multi-PDF Chatbot
+Private AI v4.0 — Enterprise Multi-PDF Chatbot
 Run: streamlit run main.py
 """
 

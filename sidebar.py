@@ -41,7 +41,7 @@ def render_sidebar():
 
     with st.sidebar:
         st.markdown('<div class="sidebar-logo">🛡️ Private AI</div>', unsafe_allow_html=True)
-        st.markdown('<div class="sidebar-version">v4.4 — Full RAG Pipeline</div>', unsafe_allow_html=True)
+        st.markdown('<div class="sidebar-version">v4.0 — Full RAG Pipeline</div>', unsafe_allow_html=True)
 
         # Model selector
         if available_models:
