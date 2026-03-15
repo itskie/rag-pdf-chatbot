@@ -41,7 +41,7 @@ available_models = get_ollama_models()
 # Hero header
 st.markdown('<div class="hero-title">Private AI</div>', unsafe_allow_html=True)
 st.markdown(
-    '<div class="hero-subtitle">ENTERPRISE MULTI-PDF INTELLIGENCE · v4.4 FULL RAG PIPELINE</div>',
+    '<div class="hero-subtitle">ENTERPRISE MULTI-PDF INTELLIGENCE · v4.0 FULL RAG PIPELINE</div>',
     unsafe_allow_html=True,
 )
 badge_html = "".join([
